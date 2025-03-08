@@ -36,11 +36,11 @@ class Attention(nn.Module):
         return out.transpose(1, 2).reshape(bs, T, -1)
 
 class MLP(nn.Module):
-    def __init__(self, embedding_dim: int, mlp_dim: int):
+    def __init__(self, input_dim: int, output_dim: int, mlp_dim: int):
         super().__init__()
-        self._linear1 = nn.Linear(embedding_dim, mlp_dim)
+        self._linear1 = nn.Linear(input_dim, mlp_dim)
         self._relu = nn.ReLU()
-        self._linear2 = nn.Linear(mlp_dim, embedding_dim)
+        self._linear2 = nn.Linear(mlp_dim, output_dim)
 
     def forward(self, x: torch.Tensor):
         out = self._linear1(x)
@@ -53,7 +53,7 @@ class Block(nn.Module):
         super().__init__()
         self._ln = nn.LayerNorm(embedding_dim)
         self._mha = Attention(embedding_dim, n_heads)
-        self._mlp = MLP(embedding_dim, mlp_dim)
+        self._mlp = MLP(embedding_dim, embedding_dim, mlp_dim)
 
     def forward(self, x: torch.Tensor):
         # Pre-Norm -> MHA -> MLP
@@ -75,10 +75,14 @@ class ViT(nn.Module):
         self._image_tokenizer = ImageTokenizer(patch_size, n_channels, embedding_dim)
         # TODO add position embedding
         self._blocks = nn.ModuleList([Block(embedding_dim, mlp_dim, n_heads) for _ in range(n_layers)])
-        self._mlp = nn.Linear(embedding_dim, n_classes)
+        self._mlp = MLP(embedding_dim, n_classes, mlp_dim)
 
-    def forward(self, x: torch.Tensor, y: Optional[torch.Tensor] = None):
-        pass
-
-
-
+    def forward(self, x: torch.Tensor, y: Optional[torch.Tensor] = None) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
+        out = self._image_tokenizer(x)
+        for block in self._blocks:
+            out = block(out)
+        logits = self._mlp(out)
+        loss = None
+        if y is not None:
+            loss = nn.functional.cross_entropy(logits, y)
+        return logits, loss
