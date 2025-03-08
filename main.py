@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Iterator
 
 import torch
 import torchvision
@@ -6,6 +7,8 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from PIL import Image, ImageDraw
 import numpy as np
+
+from model import ViT
 
 
 def collate_cifar10_fn(data) -> tuple[torch.Tensor, torch.Tensor]:
@@ -49,6 +52,13 @@ def plot_labels(labels: torch.Tensor, h: int = 32, w: int = 32) -> torch.Tensor:
         image_data[i, 0, :, :] = np.asarray(img)
     return torch.tensor(image_data, dtype=torch.float32)
 
+def grad_norm(parameters: Iterator[torch.nn.Parameter]) -> float:
+   total_norm = 0.0
+   for p in parameters:
+      if p.grad is not None:
+         param_norm = p.grad.data.norm(2)
+         total_norm += param_norm.item() ** 2
+   return total_norm ** 0.5
 
 def main():
     dataset_name = "cifar10"
@@ -69,12 +79,20 @@ def main():
     log_name = f"{dataset_name}-vit-{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}"
     writer = SummaryWriter(log_dir=f"runs/{log_name}")
     n_epochs = 100
+    model = ViT(patch_size = 8, n_channels = 3, n_layers = 6, embedding_dim = 512, mlp_dim = 1024, n_heads = 8, n_classes = 10)
+    optimizer = torch.optim.AdamW(params=model.parameters(), lr=1e-3)
 
     i = 0
     for _ in range(n_epochs):
         for images, labels in dataloader:
+            optimizer.zero_grad()
+            logits, loss = model(images, labels)
+            loss.backward()
+            optimizer.step()
             writer.add_images("train/images", make_grid(images), i)
             writer.add_images("train/labels", make_grid(plot_labels(labels)), i)
+            writer.add_scalar("train/grad_norm", grad_norm(model.parameters()), i)
+            writer.add_scalar("train/loss", loss.item(), i)
             i += 1
     writer.close()
 

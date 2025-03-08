@@ -81,6 +81,8 @@ class ViT(nn.Module):
         out = self._image_tokenizer(x)
         for block in self._blocks:
             out = block(out)
+        # global avg pool on out: (B,T,D) -> (B,D)
+        out = torch.mean(out, dim=1)
         logits = self._mlp(out)
         loss = None
         if y is not None:
