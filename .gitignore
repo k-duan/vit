@@ -1,0 +1,6 @@
+.idea
+__pycache__
+runs
+MNIST
+cifar-10-python.tar.gz
+cifar-10-batches-py
