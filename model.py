@@ -58,8 +58,8 @@ class Block(nn.Module):
     def forward(self, x: torch.Tensor):
         # Pre-Norm -> MHA -> MLP
         out = self._ln(x)
-        out = self._mha(out)
-        out = self._mlp(out)
+        out = x + self._mha(out)
+        out = out + self._mlp(out)
         return out
 
 class ViT(nn.Module):

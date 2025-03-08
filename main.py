@@ -80,7 +80,7 @@ def main():
     writer = SummaryWriter(log_dir=f"runs/{log_name}")
     n_epochs = 100
     model = ViT(patch_size = 8, n_channels = 3, n_layers = 6, embedding_dim = 512, mlp_dim = 1024, n_heads = 8, n_classes = 10)
-    optimizer = torch.optim.AdamW(params=model.parameters(), lr=1e-3)
+    optimizer = torch.optim.AdamW(params=model.parameters(), lr=4e-5)
 
     i = 0
     for _ in range(n_epochs):
@@ -88,6 +88,7 @@ def main():
             optimizer.zero_grad()
             logits, loss = model(images, labels)
             loss.backward()
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             writer.add_images("train/images", make_grid(images), i)
             writer.add_images("train/labels", make_grid(plot_labels(labels)), i)
